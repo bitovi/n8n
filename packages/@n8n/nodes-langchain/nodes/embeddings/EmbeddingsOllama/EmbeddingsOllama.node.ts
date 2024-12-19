@@ -1,5 +1,6 @@
 /* eslint-disable n8n-nodes-base/node-dirname-against-convention */
 import { OllamaEmbeddings } from '@langchain/ollama';
+import { LangfuseCallbackHandler } from 'langfuse-langchain';
 import {
 	NodeConnectionType,
 	type INodeType,
@@ -38,9 +39,7 @@ export class EmbeddingsOllama implements INodeType {
 				],
 			},
 		},
-		// eslint-disable-next-line n8n-nodes-base/node-class-description-inputs-wrong-regular-node
 		inputs: [],
-		// eslint-disable-next-line n8n-nodes-base/node-class-description-outputs-wrong
 		outputs: [NodeConnectionType.AiEmbedding],
 		outputNames: ['Embeddings'],
 		properties: [getConnectionHintNoticeField([NodeConnectionType.AiVectorStore]), ollamaModel],
@@ -51,9 +50,16 @@ export class EmbeddingsOllama implements INodeType {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const credentials = await this.getCredentials('ollamaApi');
 
+		const langfuseHandler = new LangfuseCallbackHandler({
+			publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+			secretKey: process.env.LANGFUSE_SECRET_KEY,
+			baseUrl: process.env.LANGFUSE_HOST,
+		});
+
 		const embeddings = new OllamaEmbeddings({
 			baseUrl: credentials.baseUrl as string,
 			model: modelName,
+			callbacks: [langfuseHandler]
 		});
 
 		return {

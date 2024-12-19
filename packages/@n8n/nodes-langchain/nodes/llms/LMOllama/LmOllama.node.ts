@@ -1,6 +1,7 @@
 /* eslint-disable n8n-nodes-base/node-dirname-against-convention */
 
 import { Ollama } from '@langchain/community/llms/ollama';
+import { LangfuseCallbackHandler } from 'langfuse-langchain';
 import {
 	NodeConnectionType,
 	type INodeType,
@@ -60,11 +61,17 @@ export class LmOllama implements INodeType {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const options = this.getNodeParameter('options', itemIndex, {}) as object;
 
+		const langfuseHandler = new LangfuseCallbackHandler({
+			publicKey: process.env.LANGFUSE_PUBLIC_KEY,
+			secretKey: process.env.LANGFUSE_SECRET_KEY,
+			baseUrl: process.env.LANGFUSE_HOST,
+		});
+
 		const model = new Ollama({
 			baseUrl: credentials.baseUrl as string,
 			model: modelName,
 			...options,
-			callbacks: [new N8nLlmTracing(this)],
+			callbacks: [new N8nLlmTracing(this), langfuseHandler],
 			onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
 		});
 
