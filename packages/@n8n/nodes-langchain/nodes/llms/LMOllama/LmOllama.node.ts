@@ -61,10 +61,11 @@ export class LmOllama implements INodeType {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const options = this.getNodeParameter('options', itemIndex, {}) as object;
 
+		const langfuseOptions = (options as any).langfuse || {};
 		const langfuseHandler = new LangfuseCallbackHandler({
-			publicKey: process.env.LANGFUSE_PUBLIC_KEY,
-			secretKey: process.env.LANGFUSE_SECRET_KEY,
-			baseUrl: process.env.LANGFUSE_HOST,
+			publicKey: langfuseOptions.publicKey || process.env.LANGFUSE_PUBLIC_KEY,
+			secretKey: langfuseOptions.secretKey || process.env.LANGFUSE_SECRET_KEY,
+			baseUrl: langfuseOptions.baseUrl || process.env.LANGFUSE_HOST,
 		});
 
 		const model = new Ollama({

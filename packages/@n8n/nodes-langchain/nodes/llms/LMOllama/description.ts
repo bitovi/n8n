@@ -229,5 +229,36 @@ export const ollamaOptions: INodeProperties = {
 			default: 'default',
 			description: 'Specifies the format of the API response',
 		},
+		{
+			displayName: 'Langfuse',
+			name: 'langfuse',
+			placeholder: 'Add Langfuse Options',
+			description: 'Options for Langfuse tracing',
+			type: 'collection',
+			default: {},
+			options: [
+				{
+					displayName: 'Public Key',
+					name: 'publicKey',
+					type: 'string',
+					default: '',
+					description: 'Your Langfuse public key. Falls back to LANGFUSE_PUBLIC_KEY environment variable if not set.',
+				},
+				{
+					displayName: 'Secret Key',
+					name: 'secretKey',
+					type: 'string',
+					default: '',
+					description: 'Your Langfuse secret key. Falls back to LANGFUSE_SECRET_KEY environment variable if not set.',
+				},
+				{
+					displayName: 'Host',
+					name: 'baseUrl',
+					type: 'string',
+					default: '',
+					description: 'Your Langfuse host URL. Falls back to LANGFUSE_HOST environment variable if not set.',
+				},
+			],
+		},
 	],
 };
