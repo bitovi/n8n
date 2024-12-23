@@ -2,7 +2,8 @@ name: 'Release: Publish'
 
 on:
   push:
-    branches: [ master ]
+    branches:
+      - 'feat/*'
   pull_request:
     types:
       - closed
