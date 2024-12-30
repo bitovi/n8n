@@ -5,8 +5,6 @@ on:
     branches:
       - 'feat/*'
   pull_request:
-    types:
-      - closed
     branches:
       - 'feat/*'
 
@@ -50,7 +48,7 @@ jobs:
       - name: Dry-run publishing
         run: pnpm publish -r --no-git-checks --dry-run
 
-      - name: Publish to NPM
+      - name: Publish to NPM (Custom)
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
           node .github/scripts/trim-fe-packageJson.js
@@ -63,7 +61,7 @@ jobs:
         run: echo "release=${{ env.RELEASE }}" >> $GITHUB_OUTPUT
 
   publish-to-docker-hub:
-    name: Publish to DockerHub
+    name: Publish to Docker Hub
     needs: [publish-to-npm]
     runs-on: ubuntu-latest
     if: github.event.pull_request.merged == true
