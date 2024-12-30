@@ -25,6 +25,6 @@ jobs:
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v3.0.0
       with:
-        context: .
+        context: ./docker/images/n8n
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/your-image-name:latest
