@@ -55,7 +55,6 @@ jobs:
       - id: set-release
         run: echo "release=${{ env.RELEASE }}" >> $GITHUB_OUTPUT
 
-jobs:
   build-and-push:
     needs: [publish-to-npm]
     runs-on: ubuntu-latest
