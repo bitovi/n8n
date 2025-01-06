@@ -45,7 +45,7 @@ jobs:
     needs: build
     timeout-minutes: 10
     env:
-      N8N_ENCRYPTION_KEY=${{secrets.ENCRYPTION_KEY}}
+      N8N_ENCRYPTION_KEY: ${{secrets.ENCRYPTION_KEY}}
     steps:
       - uses: actions/checkout@v4.1.1
       - run: corepack enable
