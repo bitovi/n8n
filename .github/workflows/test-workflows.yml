@@ -72,7 +72,7 @@ jobs:
       - name: Checkout workflows repo
         uses: actions/checkout@v4.1.1
         with:
-          repository: n8n-io/test-workflows
+          repository: bitovi/test-workflows
           path: test-workflows
 
       - name: Import credentials
