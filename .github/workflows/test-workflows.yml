@@ -73,7 +73,7 @@ jobs:
         uses: actions/checkout@v4.1.1
         with:
           repository: bitovi/n8n-test-workflows
-          path: test-workflows
+          path: n8n-test-workflows
 
       - name: Import credentials
         run: packages/cli/bin/n8n import:credentials --input=test-workflows/credentials.json
