@@ -3,7 +3,12 @@ name: 'Build and Publish Docker Image'
 on:
   push:
     branches:
-      - 'feat/*'
+      - master
+  pull_request:
+    branches:
+      - master
+    types:
+      - closed
 
 jobs:
   publish-to-npm:
