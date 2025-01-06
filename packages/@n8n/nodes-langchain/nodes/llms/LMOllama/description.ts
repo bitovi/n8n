@@ -134,7 +134,7 @@ export const ollamaOptions: INodeProperties = {
 					displayName: 'Secret Key',
 					name: 'secretKey',
 					type: 'string',
-					typeOptions: { password: true },
+					// typeOptions: { password: true },
 					default: '',
 					description:
 						'Your Langfuse secret key. Falls back to LANGFUSE_SECRET_KEY environment variable if not set.',
