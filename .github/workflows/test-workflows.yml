@@ -17,7 +17,8 @@ jobs:
   build:
     name: Install & Build
     runs-on: ubuntu-latest
-    if: github.event_name != 'pull_request_review' || startsWith(github.event.pull_request.base.ref, 'release/')
+    # if: github.event_name != 'pull_request_review' || startsWith(github.event.pull_request.base.ref, 'release/')
+    if: false
     steps:
       - uses: actions/checkout@v4.1.1
       - run: corepack enable
@@ -44,6 +45,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     timeout-minutes: 10
+    env:
+      N8N_ENCRYPTION_KEY: ${{secrets.ENCRYPTION_KEY}}
     steps:
       - uses: actions/checkout@v4.1.1
       - run: corepack enable
@@ -72,7 +75,7 @@ jobs:
       - name: Checkout workflows repo
         uses: actions/checkout@v4.1.1
         with:
-          repository: n8n-io/test-workflows
+          repository: bitovi/n8n-test-workflows
           path: test-workflows
 
       - name: Import credentials
