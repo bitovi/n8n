@@ -24,7 +24,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Debug Publish Branch
-        run: echo "Publishing to branch: ${{ github.event.pull_request.base.ref }}"
+        run: echo "${{ github.event.pull_request.base.ref }}"
       - run: corepack enable
       - uses: actions/setup-node@v4.0.2
         with:
