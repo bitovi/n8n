@@ -1,7 +1,9 @@
 name: 'Build and Publish Docker Image'
 
 on:
-  push:
+  pull_request:
+    types:
+      - closed
     branches:
       - master
   pull_request:
@@ -27,7 +29,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4.1.1
         with:
-          fetch-depth: 0
+          ref: ${{ github.head_ref || github.ref }}
       - run: corepack enable
       - uses: actions/setup-node@v4.0.2
         with:
