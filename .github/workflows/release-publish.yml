@@ -1,9 +1,11 @@
 name: 'Build and Publish Docker Image'
 
 on:
-  push:
+  pull_request:
     branches:
-      - fix/*
+      - master
+    types:
+      - closed
 
 jobs:
   publish-to-npm:
