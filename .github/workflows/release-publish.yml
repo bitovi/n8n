@@ -3,9 +3,7 @@ name: 'Build and Publish Docker Image'
 on:
   pull_request:
     branches:
-      - master
-    types:
-      - closed
+      - fix/*
 
 jobs:
   publish-to-npm:
