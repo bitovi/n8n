@@ -25,7 +25,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
       - name: Debug Publish Branch
-        run: echo "${{ github.event.pull_request.base.ref }}"
+        run: echo "${{ github.ref_name }}"
       - run: corepack enable
       - uses: actions/setup-node@v4.0.2
         with:
@@ -50,6 +50,8 @@ jobs:
       - name: Publish to GitHub Packages
         run: |
           echo "registry=https://npm.pkg.github.com" > .npmrc
+          echo "@n8n_io:registry=https://npm.pkg.github.com" > .npmrc
+          echo "@n8n:registry=https://npm.pkg.github.com" > .npmrc
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
           node .github/scripts/trim-fe-packageJson.js
           node .github/scripts/ensure-provenance-fields.mjs
@@ -58,7 +60,6 @@ jobs:
 
       - id: set-release
         run: echo "release=${{ env.RELEASE }}" >> $GITHUB_OUTPUT
-
   build-and-push:
     needs: [publish-to-github]
     runs-on: ubuntu-latest
