@@ -6,8 +6,8 @@ on:
       - 'fix/*'
 
 jobs:
-  publish-to-npm:
-    name: Publish to NPM
+  publish-to-github:
+    name: Publish to Github
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -30,6 +30,8 @@ jobs:
         with:
           node-version: 20.x
           cache: 'pnpm'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@bitovi'
       - run: pnpm install --frozen-lockfile
 
       - name: Set release version in env
@@ -44,12 +46,10 @@ jobs:
           path: ./packages/**/dist
           key: ${{ github.sha }}-release:build
 
-      - name: Dry-run publishing
-        run: pnpm publish -r --no-git-checks --dry-run
-
-      - name: Publish to NPM
+      - name: Publish to GitHub Packages
         run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          echo "@bitovi:registry=https://npm.pkg.github.com" > .npmrc
+          echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
           node .github/scripts/trim-fe-packageJson.js
           node .github/scripts/ensure-provenance-fields.mjs
           sed -i "s/default: 'dev'/default: 'stable'/g" packages/cli/dist/config/schema.js
@@ -59,7 +59,7 @@ jobs:
         run: echo "release=${{ env.RELEASE }}" >> $GITHUB_OUTPUT
 
   build-and-push:
-    needs: [publish-to-npm]
+    needs: [publish-to-github]
     runs-on: ubuntu-latest
 
     steps:
@@ -71,11 +71,12 @@ jobs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3.0.0
 
-    - name: Login to Docker Hub
+    - name: Login to GitHub Container Registry
       uses: docker/login-action@v3.0.0
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        registry: ghcr.io
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5.1.0
@@ -87,6 +88,5 @@ jobs:
         provenance: false
         push: true
         tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/n8n:${{ needs.publish-to-npm.outputs.release }}
-            docker.io/${{ github.repository_owner }}/n8n:${{ needs.publish-to-npm.outputs.release }}
+          ghcr.io/${{ github.repository_owner }}/n8n:${{ needs.publish-to-github.outputs.release }}
 
