@@ -83,6 +83,9 @@ jobs:
     - name: Debugging1
       run: ls -R ./docker/images/n8n
 
+    - name: Debugging2
+      run: cat ./docker/images/n8n/Dockerfile
+
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5.1.0
       with:
