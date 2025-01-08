@@ -80,6 +80,9 @@ jobs:
         username: ${{ github.repository_owner }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Debugging1
+      run: ls -R ./docker/images/n8n
+
     - name: Build and Push Docker Image
       uses: docker/build-push-action@v5.1.0
       with:
