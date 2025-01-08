@@ -46,7 +46,8 @@ jobs:
         with:
           path: ./packages/**/dist
           key: ${{ github.sha }}-release:build
-
+      - name: Dry Run Publish
+        run: pnpm publish -r --publish-branch ${{ github.ref_name }} --dry-run
       - name: Publish to GitHub Packages
         run: |
           echo "registry=https://npm.pkg.github.com" > .npmrc
