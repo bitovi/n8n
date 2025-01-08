@@ -50,8 +50,7 @@ jobs:
         run: pnpm publish -r --publish-branch ${{ github.ref_name }} --dry-run
       - name: Publish to GitHub Packages
         run: |
-          echo "registry=https://npm.pkg.github.com" > .npmrc
-          echo "@n8n_io:registry=https://npm.pkg.github.com" >> .npmrc
+          echo "@n8n_io:registry=https://npm.pkg.github.com" > .npmrc
           echo "@n8n:registry=https://npm.pkg.github.com" >> .npmrc
           echo "//npm.pkg.github.com/:_authToken=${{ secrets.GITHUB_TOKEN }}" >> .npmrc
           node .github/scripts/trim-fe-packageJson.js
@@ -59,6 +58,8 @@ jobs:
           sed -i "s/default: 'dev'/default: 'stable'/g" packages/cli/dist/config/schema.js
           pnpm publish -r --publish-branch ${{ github.ref_name }} --access public --tag rc --no-git-checks
 
+      - name: Debug .npmrc
+        run: cat .npmrc
       - id: set-release
         run: echo "release=${{ env.RELEASE }}" >> $GITHUB_OUTPUT
   build-and-push:
