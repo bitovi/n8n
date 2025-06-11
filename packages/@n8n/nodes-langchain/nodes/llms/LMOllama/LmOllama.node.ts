@@ -14,6 +14,7 @@ import { getConnectionHintNoticeField } from '@utils/sharedFields';
 import { ollamaDescription, ollamaModel, ollamaOptions } from './description';
 import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
 import { N8nLlmTracing } from '../N8nLlmTracing';
+import { N8nLangfuse } from '../N8nLangfuse';
 
 export class LmOllama implements INodeType {
 	description: INodeTypeDescription = {
@@ -60,13 +61,30 @@ export class LmOllama implements INodeType {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const options = this.getNodeParameter('options', itemIndex, {}) as object;
 
-		const model = new Ollama({
-			baseUrl: credentials.baseUrl as string,
-			model: modelName,
-			...options,
-			callbacks: [new N8nLlmTracing(this)],
-			onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
-		});
+                const callbacks = [new N8nLlmTracing(this)];
+
+                try {
+                        const langfuse = await this.getCredentials('langfuseApi', { throwError: false });
+                        if (langfuse) {
+                                const workflowProxy = this.getWorkflowDataProxy(0);
+                                callbacks.push(
+                                        new N8nLangfuse(this, {
+                                                publicKey: langfuse.publicKey as string,
+                                                secretKey: langfuse.secretKey as string,
+                                                host: langfuse.host as string,
+                                                sessionId: workflowProxy.$workflow.id as string,
+                                        }),
+                                );
+                        }
+                } catch {}
+
+                const model = new Ollama({
+                        baseUrl: credentials.baseUrl as string,
+                        model: modelName,
+                        ...options,
+                        callbacks,
+                        onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
+                });
 
 		return {
 			response: model,

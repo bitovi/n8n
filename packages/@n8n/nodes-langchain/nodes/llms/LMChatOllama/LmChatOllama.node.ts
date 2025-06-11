@@ -15,6 +15,7 @@ import { getConnectionHintNoticeField } from '@utils/sharedFields';
 import { ollamaModel, ollamaOptions, ollamaDescription } from '../LMOllama/description';
 import { makeN8nLlmFailedAttemptHandler } from '../n8nLlmFailedAttemptHandler';
 import { N8nLlmTracing } from '../N8nLlmTracing';
+import { N8nLangfuse } from '../N8nLangfuse';
 
 export class LmChatOllama implements INodeType {
 	description: INodeTypeDescription = {
@@ -61,14 +62,31 @@ export class LmChatOllama implements INodeType {
 		const modelName = this.getNodeParameter('model', itemIndex) as string;
 		const options = this.getNodeParameter('options', itemIndex, {}) as ChatOllamaInput;
 
-		const model = new ChatOllama({
-			...options,
-			baseUrl: credentials.baseUrl as string,
-			model: modelName,
-			format: options.format === 'default' ? undefined : options.format,
-			callbacks: [new N8nLlmTracing(this)],
-			onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
-		});
+                const callbacks = [new N8nLlmTracing(this)];
+
+                try {
+                        const langfuse = await this.getCredentials('langfuseApi', { throwError: false });
+                        if (langfuse) {
+                                const workflowProxy = this.getWorkflowDataProxy(0);
+                                callbacks.push(
+                                        new N8nLangfuse(this, {
+                                                publicKey: langfuse.publicKey as string,
+                                                secretKey: langfuse.secretKey as string,
+                                                host: langfuse.host as string,
+                                                sessionId: workflowProxy.$workflow.id as string,
+                                        }),
+                                );
+                        }
+                } catch {}
+
+                const model = new ChatOllama({
+                        ...options,
+                        baseUrl: credentials.baseUrl as string,
+                        model: modelName,
+                        format: options.format === 'default' ? undefined : options.format,
+                        callbacks,
+                        onFailedAttempt: makeN8nLlmFailedAttemptHandler(this),
+                });
 
 		return {
 			response: model,
