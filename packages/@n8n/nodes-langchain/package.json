@@ -35,6 +35,7 @@
       "dist/credentials/MilvusApi.credentials.js",
       "dist/credentials/MistralCloudApi.credentials.js",
       "dist/credentials/OllamaApi.credentials.js",
+      "dist/credentials/LangfuseApi.credentials.js",
       "dist/credentials/OpenRouterApi.credentials.js",
       "dist/credentials/PineconeApi.credentials.js",
       "dist/credentials/QdrantApi.credentials.js",
@@ -212,6 +213,7 @@
     "sqlite3": "5.1.7",
     "temp": "0.9.4",
     "tmp-promise": "3.0.3",
+    "langfuse-langchain": "3.37.4",
     "zod": "catalog:",
     "zod-to-json-schema": "3.23.3"
   }
