@@ -1629,3 +1629,98 @@ describe('PUT /workflows/:id/transfer', () => {
 		expect(response.statusCode).toBe(400);
 	});
 });
+
+describe('GET /workflow-history/:id', () => {
+	test('should fail due to missing API Key', testWithAPIKey('get', '/workflow-history/123', null));
+
+	test('should fail due to invalid API Key', testWithAPIKey('get', '/workflow-history/123', 'abcXYZ'));
+
+	test('should fail due to non-existing workflow', async () => {
+		const response = await authOwnerAgent.get('/workflow-history/nonexistent');
+		expect(response.statusCode).toBe(404);
+		expect(response.body.message).toBe('Not Found');
+	});
+
+	test('should return empty array for workflow with no history', async () => {
+		const workflow = await createWorkflow({}, owner);
+
+		const response = await authOwnerAgent.get(`/workflow-history/${workflow.id}`);
+
+		expect(response.statusCode).toBe(200);
+		expect(response.body.data).toEqual([]);
+	});
+
+	test('should return workflow history with default pagination', async () => {
+		// Enable workflow history feature for this test
+		license.enable('feat:workflowHistory');
+		
+		const workflow = await createWorkflow({}, owner);
+		
+		// Create some workflow history items manually
+		const historyItems = [];
+		for (let i = 0; i < 5; i++) {
+			historyItems.push(
+				await Container.get(WorkflowHistoryRepository).save({
+					workflowId: workflow.id,
+					versionId: `version-${i}`,
+					authors: `Author ${i}`,
+					nodes: [],
+					connections: {},
+					createdAt: new Date(Date.now() + i * 1000),
+					updatedAt: new Date(Date.now() + i * 1000),
+				}),
+			);
+		}
+
+		const response = await authOwnerAgent.get(`/workflow-history/${workflow.id}`);
+
+		expect(response.statusCode).toBe(200);
+		expect(response.body.data).toHaveLength(5);
+		expect(response.body.data[0]).toMatchObject({
+			workflowId: workflow.id,
+			versionId: expect.any(String),
+			authors: expect.any(String),
+			createdAt: expect.any(String),
+			updatedAt: expect.any(String),
+		});
+		// Ensure nodes and connections are not included
+		expect(response.body.data[0].nodes).toBeUndefined();
+		expect(response.body.data[0].connections).toBeUndefined();
+	});
+
+	test('should respect take and skip query parameters', async () => {
+		license.enable('feat:workflowHistory');
+		
+		const workflow = await createWorkflow({}, owner);
+		
+		// Create 10 workflow history items
+		for (let i = 0; i < 10; i++) {
+			await Container.get(WorkflowHistoryRepository).save({
+				workflowId: workflow.id,
+				versionId: `version-${i}`,
+				authors: `Author ${i}`,
+				nodes: [],
+				connections: {},
+				createdAt: new Date(Date.now() + i * 1000),
+				updatedAt: new Date(Date.now() + i * 1000),
+			});
+		}
+
+		// Test with take=3, skip=2
+		const response = await authOwnerAgent.get(`/workflow-history/${workflow.id}?take=3&skip=2`);
+
+		expect(response.statusCode).toBe(200);
+		expect(response.body.data).toHaveLength(3);
+	});
+
+	test('should deny access to workflow history if user does not have access to workflow', async () => {
+		license.enable('feat:workflowHistory');
+		
+		const workflow = await createWorkflow({}, owner);
+
+		const response = await authMemberAgent.get(`/workflow-history/${workflow.id}`);
+
+		expect(response.statusCode).toBe(404);
+		expect(response.body.message).toBe('Not Found');
+	});
+});

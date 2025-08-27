@@ -1,0 +1,48 @@
+get:
+  x-eov-operation-id: getWorkflowHistory
+  x-eov-operation-handler: v1/handlers/workflows/workflows.handler
+  tags:
+    - Workflow
+  summary: Retrieves workflow history
+  description: Retrieves the version history for a workflow.
+  parameters:
+    - name: take
+      in: query
+      required: false
+      description: Number of history items to return (default 20, max 100)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        example: 20
+    - name: skip
+      in: query
+      required: false
+      description: Number of history items to skip for pagination (default 0)
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+        example: 0
+    - $ref: '../schemas/parameters/workflowId.yml'
+  responses:
+    '200':
+      description: Operation successful.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                type: array
+                items:
+                  $ref: '../schemas/workflow-history.yml'
+    '401':
+      $ref: '../../../../shared/spec/responses/unauthorized.yml'
+    '403':
+      $ref: '../../../../shared/spec/responses/forbidden.yml'
+    '404':
+      $ref: '../../../../shared/spec/responses/notFound.yml'
+  security:
+    - ApiKeyAuth: []
