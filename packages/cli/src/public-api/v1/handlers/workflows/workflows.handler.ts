@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { ActiveWorkflowManager } from '@/active-workflow-manager';
 import { EventService } from '@/events/event.service';
 import { ExternalHooks } from '@/external-hooks';
+import { SharedWorkflowNotFoundError } from '@/errors/shared-workflow-not-found.error';
 import { addNodeIds, replaceInvalidCredentials } from '@/workflow-helpers';
 import { WorkflowFinderService } from '@/workflows/workflow-finder.service';
 import { WorkflowHistoryService } from '@/workflows/workflow-history.ee/workflow-history.service.ee';
@@ -473,6 +474,30 @@ export = {
 			}
 
 			return res.json(tags);
+		},
+	],
+	getWorkflowHistory: [
+		apiKeyHasScope('workflow:read'),
+		async (req: WorkflowRequest.GetHistory, res: express.Response): Promise<express.Response> => {
+			const { id } = req.params;
+			const { take = 20, skip = 0 } = req.query;
+
+			try {
+				const historyItems = await Container.get(WorkflowHistoryService).getList(
+					req.user,
+					id,
+					take,
+					skip,
+				);
+
+				return res.json({ data: historyItems });
+			} catch (error) {
+				if (error instanceof SharedWorkflowNotFoundError) {
+					return res.status(404).json({ message: 'Not Found' });
+				}
+				// For any other errors including licensing, re-throw to be handled by middleware
+				throw error;
+			}
 		},
 	],
 };

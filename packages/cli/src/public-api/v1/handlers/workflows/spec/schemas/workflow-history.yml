@@ -1,0 +1,31 @@
+type: object
+additionalProperties: false
+required:
+  - workflowId
+  - versionId
+  - authors
+  - createdAt
+  - updatedAt
+properties:
+  workflowId:
+    type: string
+    description: The ID of the workflow this version belongs to
+    example: 2tUt1wbLX592XDdX
+  versionId:
+    type: string
+    description: The unique ID of this workflow version
+    example: b0b1e8f4-3c5d-4e6f-9g7h-8i9j0k1l2m3n
+  authors:
+    type: string
+    description: The author(s) who created this version
+    example: John Doe
+  createdAt:
+    type: string
+    format: date-time
+    description: The date and time when this version was created
+    example: '2023-01-01T12:00:00.000Z'
+  updatedAt:
+    type: string
+    format: date-time
+    description: The date and time when this version was last updated
+    example: '2023-01-01T12:00:00.000Z'

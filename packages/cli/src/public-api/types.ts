@@ -86,6 +86,7 @@ export declare namespace WorkflowRequest {
 	type GetTags = Get;
 	type UpdateTags = AuthenticatedRequest<{ id: string }, {}, TagEntity[]>;
 	type Transfer = AuthenticatedRequest<{ id: string }, {}, { destinationProjectId: string }>;
+	type GetHistory = AuthenticatedRequest<{ id: string }, {}, {}, { take?: number; skip?: number }>;
 }
 
 export declare namespace UserRequest {
