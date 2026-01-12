@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, reactive, onMounted } from 'vue';
+import { computed, ref, reactive, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from '@n8n/i18n';
 import { useUIStore } from '@/stores/ui.store';
-import { useCredentialsStore } from '@/stores/credentials.store';
+import { useCredentialsStore, listenForCredentialChanges } from '@/stores/credentials.store';
 import { useWorkflowsStore } from '@/stores/workflows.store';
 import { nodeViewEventBus } from '@/event-bus';
 import { WORKFLOW_IMPORT_MAPPING_MODAL_KEY } from '@/constants';
@@ -19,9 +19,19 @@ const uiStore = useUIStore();
 const credentialsStore = useCredentialsStore();
 const workflowsStore = useWorkflowsStore();
 
+// Wizard state
+const currentStep = ref(1);
+const NODES_THRESHOLD = 10;
+
 // Available workflows for subworkflow mapping (sorted by last modified)
 const availableWorkflows = ref<{ id: string; name: string; updatedAt: number }[]>([]);
 const loadingWorkflows = ref(true);
+
+// Track created credentials to update dropdown
+const createdCredentials = ref<string[]>([]);
+
+// Listen for new credentials being created
+let stopListening: (() => void) | null = null;
 
 onMounted(async () => {
 	try {
@@ -39,10 +49,36 @@ onMounted(async () => {
 	} finally {
 		loadingWorkflows.value = false;
 	}
+
+	// Listen for credential changes
+	stopListening = listenForCredentialChanges({
+		store: credentialsStore,
+		onCredentialCreated: (credential) => {
+			createdCredentials.value.push(credential.id);
+		},
+	});
+});
+
+onUnmounted(() => {
+	if (stopListening) {
+		stopListening();
+	}
 });
 
 // Extract nodes from workflow data
 const nodes = computed(() => props.data?.workflowData?.nodes || []);
+
+// Determine if wizard mode should be used
+const useWizardMode = computed(() => nodes.value.length > NODES_THRESHOLD);
+
+// Total steps for wizard
+const totalSteps = computed(() => {
+	if (!useWizardMode.value) return 1;
+	return 3;
+});
+
+// Step titles
+const stepTitles = ['Nodes Review', 'Credential Mapping', 'Subworkflow Mapping'];
 
 // Extract unique credential types with their original references
 const credentialInfo = computed(() => {
@@ -71,16 +107,18 @@ const credentialInfo = computed(() => {
 	return Array.from(credMap.values());
 });
 
-// Extract subworkflow references from executeWorkflow nodes
+// Extract subworkflow references from executeWorkflow nodes AND agent nodes
 const subworkflowInfo = computed(() => {
 	const subworkflows: {
 		nodeId: string;
 		nodeName: string;
 		originalId: string;
 		originalName: string;
+		nodeType: string;
 	}[] = [];
 
 	nodes.value.forEach((node: any) => {
+		// Standard executeWorkflow nodes
 		if (node.type === 'n8n-nodes-base.executeWorkflow') {
 			const workflowId = node.parameters?.workflowId;
 			if (workflowId) {
@@ -89,6 +127,22 @@ const subworkflowInfo = computed(() => {
 					nodeName: node.name,
 					originalId: workflowId.value || workflowId,
 					originalName: workflowId.cachedResultName || 'Unknown workflow',
+					nodeType: 'executeWorkflow',
+				});
+			}
+		}
+
+		// Agent nodes with tool workflow references
+		if (node.type?.includes('langchain.agent') || node.type?.includes('langchain.toolWorkflow')) {
+			// Check for workflow tool references in agent parameters
+			const workflowId = node.parameters?.workflowId;
+			if (workflowId) {
+				subworkflows.push({
+					nodeId: node.id,
+					nodeName: node.name,
+					originalId: workflowId.value || workflowId,
+					originalName: workflowId.cachedResultName || 'Unknown workflow',
+					nodeType: 'agent',
 				});
 			}
 		}
@@ -103,8 +157,10 @@ const credentialMappings = reactive<Record<string, string>>({});
 // Subworkflow mappings: { [nodeId]: selectedWorkflowId }
 const subworkflowMappings = reactive<Record<string, string>>({});
 
-// Get available credentials for a given type
+// Get available credentials for a given type (includes newly created ones)
 const getAvailableCredentials = (credType: string) => {
+	// Force reactivity when new credentials are created
+	const _ = createdCredentials.value.length;
 	return credentialsStore.getCredentialsByType(credType);
 };
 
@@ -113,8 +169,26 @@ const hasAvailableCredentials = (credType: string) => {
 	return getAvailableCredentials(credType).length > 0;
 };
 
+// Open credential creation modal
+const openCreateCredential = (credType: string) => {
+	uiStore.openNewCredential(credType, false);
+};
+
 const closeModal = () => {
 	uiStore.closeModal(WORKFLOW_IMPORT_MAPPING_MODAL_KEY);
+};
+
+// Navigation
+const nextStep = () => {
+	if (currentStep.value < totalSteps.value) {
+		currentStep.value++;
+	}
+};
+
+const prevStep = () => {
+	if (currentStep.value > 1) {
+		currentStep.value--;
+	}
 };
 
 const confirm = () => {
@@ -139,8 +213,25 @@ const confirm = () => {
 				});
 			}
 
-			// Apply subworkflow mappings
+			// Apply subworkflow mappings for executeWorkflow nodes
 			if (node.type === 'n8n-nodes-base.executeWorkflow') {
+				const mappedWorkflowId = subworkflowMappings[node.id];
+				if (mappedWorkflowId && mappedWorkflowId !== '__keep__') {
+					const mappedWorkflow = availableWorkflows.value.find((w) => w.id === mappedWorkflowId);
+					if (mappedWorkflow && node.parameters?.workflowId) {
+						node.parameters.workflowId = {
+							__rl: true,
+							value: mappedWorkflow.id,
+							mode: 'list',
+							cachedResultName: mappedWorkflow.name,
+							cachedResultUrl: `/workflow/${mappedWorkflow.id}`,
+						};
+					}
+				}
+			}
+
+			// Apply subworkflow mappings for agent nodes
+			if (node.type?.includes('langchain.agent') || node.type?.includes('langchain.toolWorkflow')) {
 				const mappedWorkflowId = subworkflowMappings[node.id];
 				if (mappedWorkflowId && mappedWorkflowId !== '__keep__') {
 					const mappedWorkflow = availableWorkflows.value.find((w) => w.id === mappedWorkflowId);
@@ -161,6 +252,21 @@ const confirm = () => {
 	nodeViewEventBus.emit('importWorkflowData', { data: workflowData });
 	closeModal();
 };
+
+// Show section based on wizard step or show all if not in wizard mode
+const showNodesSection = computed(() => !useWizardMode.value || currentStep.value === 1);
+const showCredentialsSection = computed(
+	() => credentialInfo.value.length > 0 && (!useWizardMode.value || currentStep.value === 2),
+);
+const showSubworkflowsSection = computed(
+	() => subworkflowInfo.value.length > 0 && (!useWizardMode.value || currentStep.value === 3),
+);
+
+// Is on final step (for Import button)
+const isOnFinalStep = computed(() => {
+	if (!useWizardMode.value) return true;
+	return currentStep.value === totalSteps.value;
+});
 </script>
 
 <template>
@@ -173,13 +279,37 @@ const confirm = () => {
 	>
 		<template #content>
 			<div :class="$style.content">
+				<!-- Wizard Step Indicator -->
+				<div v-if="useWizardMode" :class="$style.stepIndicator">
+					<div
+						v-for="step in totalSteps"
+						:key="step"
+						:class="[
+							$style.step,
+							{
+								[$style.activeStep]: step === currentStep,
+								[$style.completedStep]: step < currentStep,
+							},
+						]"
+					>
+						<span :class="$style.stepNumber">{{ step }}</span>
+						<span :class="$style.stepTitle">{{ stepTitles[step - 1] }}</span>
+					</div>
+				</div>
+
 				<p :class="$style.description">
-					Review the workflow configuration below. Map credentials and subworkflows to existing ones
-					in your instance before importing.
+					<template v-if="useWizardMode">
+						Step {{ currentStep }} of {{ totalSteps }}: {{ stepTitles[currentStep - 1] }}
+					</template>
+					<template v-else>
+						Review the workflow configuration below. Map credentials and subworkflows to existing
+						ones in your instance before importing.
+					</template>
 				</p>
 
-				<div :class="$style.section">
-					<h3 :class="$style.heading">Nodes</h3>
+				<!-- Step 1: Nodes Review -->
+				<div v-if="showNodesSection" :class="$style.section">
+					<h3 :class="$style.heading">Nodes ({{ nodes.length }})</h3>
 					<div :class="$style.list">
 						<div v-for="node in nodes" :key="node.id" :class="$style.item">
 							<strong>{{ node.name }}</strong>
@@ -188,7 +318,8 @@ const confirm = () => {
 					</div>
 				</div>
 
-				<div v-if="credentialInfo.length > 0" :class="$style.section">
+				<!-- Step 2: Credential Mapping -->
+				<div v-if="showCredentialsSection" :class="$style.section">
 					<h3 :class="$style.heading">Credential Mapping</h3>
 					<p :class="$style.hint">
 						Map imported credentials to existing credentials in your n8n instance.
@@ -207,6 +338,7 @@ const confirm = () => {
 									v-model="credentialMappings[cred.type]"
 									placeholder="Select credential..."
 									size="small"
+									filterable
 								>
 									<N8nOption value="__keep__" label="Keep original (may fail)" />
 									<N8nOption
@@ -216,13 +348,22 @@ const confirm = () => {
 										:label="availCred.name"
 									/>
 								</N8nSelect>
-								<span v-else :class="$style.noItems"> No {{ cred.type }} credentials found </span>
+								<n8n-button
+									v-else
+									type="tertiary"
+									size="small"
+									:class="$style.createLink"
+									@click="openCreateCredential(cred.type)"
+								>
+									+ Create {{ cred.type }}
+								</n8n-button>
 							</div>
 						</div>
 					</div>
 				</div>
 
-				<div v-if="subworkflowInfo.length > 0" :class="$style.section">
+				<!-- Step 3: Subworkflow Mapping -->
+				<div v-if="showSubworkflowsSection" :class="$style.section">
 					<h3 :class="$style.heading">Subworkflow Mapping</h3>
 					<p :class="$style.hint">
 						Map subworkflow calls to existing workflows in your n8n instance.
@@ -230,7 +371,10 @@ const confirm = () => {
 					<div :class="$style.mappingList">
 						<div v-for="sub in subworkflowInfo" :key="sub.nodeId" :class="$style.mappingRow">
 							<div :class="$style.mappingInfo">
-								<span :class="$style.mappingType">{{ sub.nodeName }}</span>
+								<span :class="$style.mappingType">
+									{{ sub.nodeName }}
+									<span v-if="sub.nodeType === 'agent'" :class="$style.badge">Agent</span>
+								</span>
 								<span :class="$style.mappingOriginal"> Original: {{ sub.originalName }} </span>
 							</div>
 							<div :class="$style.mappingSelect">
@@ -261,8 +405,18 @@ const confirm = () => {
 		</template>
 		<template #footer>
 			<div :class="$style.footer">
-				<n8n-button type="primary" float="right" @click="confirm"> Import </n8n-button>
-				<n8n-button type="secondary" float="right" @click="closeModal"> Cancel </n8n-button>
+				<div :class="$style.footerLeft">
+					<n8n-button v-if="useWizardMode && currentStep > 1" type="secondary" @click="prevStep">
+						Back
+					</n8n-button>
+				</div>
+				<div :class="$style.footerRight">
+					<n8n-button type="secondary" @click="closeModal"> Cancel </n8n-button>
+					<n8n-button v-if="useWizardMode && !isOnFinalStep" type="primary" @click="nextStep">
+						Next
+					</n8n-button>
+					<n8n-button v-if="isOnFinalStep" type="primary" @click="confirm"> Import </n8n-button>
+				</div>
 			</div>
 		</template>
 	</Modal>
@@ -273,6 +427,62 @@ const confirm = () => {
 	padding: var(--spacing-s);
 	max-height: 60vh;
 	overflow-y: auto;
+}
+
+.stepIndicator {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: var(--spacing-m);
+	padding-bottom: var(--spacing-s);
+	border-bottom: 1px solid var(--color-border-base);
+}
+
+.step {
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2xs);
+	opacity: 0.5;
+}
+
+.activeStep {
+	opacity: 1;
+}
+
+.completedStep {
+	opacity: 0.8;
+}
+
+.stepNumber {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: var(--color-background-dark);
+	color: var(--color-text-light);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: var(--font-size-xs);
+	font-weight: var(--font-weight-bold);
+}
+
+.activeStep .stepNumber {
+	background: var(--color-primary);
+	color: white;
+}
+
+.completedStep .stepNumber {
+	background: var(--color-success);
+	color: white;
+}
+
+.stepTitle {
+	font-size: var(--font-size-xs);
+	color: var(--color-text-light);
+}
+
+.activeStep .stepTitle {
+	color: var(--color-text-base);
+	font-weight: var(--font-weight-bold);
 }
 
 .description {
@@ -345,6 +555,18 @@ const confirm = () => {
 .mappingType {
 	font-weight: var(--font-weight-bold);
 	color: var(--color-text-base);
+	display: flex;
+	align-items: center;
+	gap: var(--spacing-2xs);
+}
+
+.badge {
+	font-size: var(--font-size-3xs);
+	background: var(--color-secondary);
+	color: white;
+	padding: 2px 6px;
+	border-radius: var(--border-radius-base);
+	font-weight: var(--font-weight-regular);
 }
 
 .mappingOriginal {
@@ -362,6 +584,10 @@ const confirm = () => {
 	font-style: italic;
 }
 
+.createLink {
+	color: var(--color-primary);
+}
+
 .loading {
 	font-size: var(--font-size-xs);
 	color: var(--color-text-light);
@@ -370,7 +596,17 @@ const confirm = () => {
 
 .footer {
 	display: flex;
-	justify-content: flex-end;
+	justify-content: space-between;
+	width: 100%;
+}
+
+.footerLeft {
+	display: flex;
+	gap: var(--spacing-xs);
+}
+
+.footerRight {
+	display: flex;
 	gap: var(--spacing-xs);
 }
 </style>
