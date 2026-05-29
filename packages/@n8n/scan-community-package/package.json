@@ -12,6 +12,6 @@
     "fast-glob": "catalog:",
     "axios": "catalog:",
     "semver": "^7.5.4",
-    "tmp": "0.2.4"
+    "tmp": "0.2.6"
   }
 }
